@@ -97,35 +97,11 @@ mount -t vfat /dev/disk/by-id/$did-part1 /mnt/boot
 ```sh
 nix-env -i git
 mkdir -p /mnt/etc
-git clone --recursive https://gitlab.com/MatrixAI/Platforms/eurocom-p7-pro-se.git /mnt/etc/nixos
+git clone --recursive https://github.com/Zachaccino/NixOS-Asus-UX533F.git /mnt/etc/nixos
 nixos-install -I nixpkgs=/mnt/etc/nixos/nixpkgs --no-channel-copy --max-jobs $(nproc) --cores $(nproc)
 # nixos-install will ask you to set the root password
 ```
 
-### Creating the EFI Boot List
-
-We do not allow the `configuration.nix` to automatically setup the EFI variables currently because it doesn't understand multi-boot.
-
-```sh
-efibootmgr \
-  --create \
-  --gpt \
-  --disk /dev/disk/by-id/$did-part1 \
-  --part 1 \
-  --label "Matrix EFI 1" \
-  --loader /EFI/BOOT/BOOTX64.EFI
-
-efibootmgr \
-  --create \
-  --gpt \
-  --disk /dev/disk/by-id/ata-PLEXTOR_PX-G128M6e_P02445180209-part1 \
-  --part 1 \
-  --label "Matrix EFI 2" \
-  --loader /EFI/BOOT/BOOTX64.EFI
-
-# remember to set the bootorder, there may be other boot entries you want to add in based on the interface
-efibootmgr --bootorder 0000,0001
-```
 
 ### Reboot
 
@@ -182,21 +158,3 @@ popd
 ```
 
 Then run `nixos-rebuild switch`. Adjust the `configuration.nix` if you meet problems.
-
-## Synchronising EFI System Partitions
-
-The EFI System Partitions are not automatically synchronised. In the future we need the system to detect changes to the `/boot` and synchronise them.
-
-One way to do this is to hook into the script that is rebuilding the EFI System Partition and add an option to allow it synchronise each time that occurs.
-
-```sh
-from_device='/dev/disk/by-id/$did-part1'
-to_device='/dev/disk/by-id/ata-PLEXTOR_PX-G128M6e_P02445180209-part1'
-
-uuid="$(lsblk --noheadings --nodeps --output uuid "$to_device")"
-
-dd if="$from_device" of="$to_device" status=none bs=128M
-
-printf "\x${uuid:7:2}\x${uuid:5:2}\x${uuid:2:2}\x${uuid:0:2}" \
-  | dd bs=1 seek=67 count=4 conv=notrunc of="$to_device"
-```
